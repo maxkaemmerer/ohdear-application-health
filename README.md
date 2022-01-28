@@ -22,7 +22,7 @@ version: "3.7"
 
 services:
   ohdear-application-health:
-    image: maxkaemmerer/ohdear-application-health:1.0.0
+    image: maxkaemmerer/ohdear-application-health:1.3.0
     restart: unless-stopped
     environment:
       - OHDEAR_TOKEN=your-token
