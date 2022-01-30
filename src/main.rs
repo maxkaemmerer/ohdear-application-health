@@ -22,7 +22,6 @@ use std::{
 };
 use sysinfo::{DiskExt, ProcessorExt, System, SystemExt};
 
-#[derive(Clone)]
 struct Token {
     token: String,
 }
@@ -52,8 +51,8 @@ impl<'a, 'r> FromRequest<'a, 'r> for Token {
                 let wrapped_token = Token {
                     token: token.to_string(),
                 };
-                if is_valid_token(wrapped_token.clone()) {
-                    Outcome::Success(wrapped_token.clone())
+                if is_valid_token(&wrapped_token) {
+                    Outcome::Success(wrapped_token)
                 } else {
                     Outcome::Failure((Status::Unauthorized, ApiTokenError::Invalid))
                 }
@@ -72,7 +71,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Token {
     }
 }
 
-fn is_valid_token(token: Token) -> bool {
+fn is_valid_token(token: &Token) -> bool {
     std::env::var("OHDEAR_TOKEN").map_or(false, |val| val == token.token)
 }
 
@@ -85,7 +84,7 @@ fn env_with_default<A: FromStr + Copy>(env_name: &str, default: A) -> A {
 }
 
 #[get("/health", format = "application/json")]
-fn get_all(_token: Token) -> Json<Value> {
+fn health(_token: Token) -> Json<Value> {
     Json(json!({
         "finishedAt": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         "checkResults": [
@@ -107,7 +106,7 @@ fn disk_check(failed_threshold: i64, warning_threshold: i64) -> CheckResult {
 
     println!("{}/{}B total disk used", total_disk_available, total_disk_space );
     let disk_percentage = 100 - ((total_disk_available as f64 / total_disk_space as f64) * 100.0) as i64;
-    return CheckResult {
+    CheckResult {
         name: "UsedDiskSpace".to_string(),
         label: "Used Disk Space".to_string(),
         status: if disk_percentage >= failed_threshold {
@@ -122,14 +121,14 @@ fn disk_check(failed_threshold: i64, warning_threshold: i64) -> CheckResult {
             disk_percentage
         ),
         shortSummary: format!("{}%", disk_percentage),
-    };
+    }
 }
 
 fn memory_check(failed_threshold: i64, warning_threshold: i64) -> CheckResult {
     let sys = System::new_all();
     println!("{}/{}KB memory", sys.available_memory(), sys.total_memory() );
     let memory_percentage = 100 - ((sys.available_memory() as f64 / sys.total_memory() as f64) * 100.0) as i64;
-    return CheckResult {
+    CheckResult {
         name: "MemorySpace".to_string(),
         label: "Memory Space".to_string(),
         status: if memory_percentage >= failed_threshold {
@@ -144,7 +143,7 @@ fn memory_check(failed_threshold: i64, warning_threshold: i64) -> CheckResult {
             memory_percentage
         ),
         shortSummary: format!("{}%", memory_percentage),
-    };
+    }
 }
 
 fn cpu_check(failed_threshold: i64, warning_threshold: i64, cpu_timespan: i64) -> CheckResult {
@@ -159,7 +158,7 @@ fn cpu_check(failed_threshold: i64, warning_threshold: i64, cpu_timespan: i64) -
     println!("{} total cpu load over {} cores", total_cpu_load, sys.processors().len() );
     let average_load = total_cpu_load / sys.processors().len() as i64;
 
-    return CheckResult {
+    CheckResult {
         name: "Load".to_string(),
         label: "CPU Load".to_string(),
         status: if average_load >= failed_threshold {
@@ -171,11 +170,11 @@ fn cpu_check(failed_threshold: i64, warning_threshold: i64, cpu_timespan: i64) -
         },
         notificationMessage: format!("The cpu load in the last minute is ({}%)", average_load),
         shortSummary: format!("{}%", average_load),
-    };
+    }
 }
 
 fn rocket() -> rocket::Rocket {
-    rocket::ignite().mount("/", routes![get_all])
+    rocket::ignite().mount("/", routes![health])
 }
 
 fn main() {
